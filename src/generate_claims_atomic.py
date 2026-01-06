@@ -68,4 +68,4 @@ Claim:
             parsed = json.loads(response.text)
             parsed["claim_num"] = claim_num #把之前算的claim_num代入json中
             f.write(json.dumps(parsed, ensure_ascii=False) + "\n")
-        print(f"公开文件ID：{test_item.get("ID","")}已处理完毕")
+        print(f"公开文件ID：{test_item.get("id","")}已处理完毕")
