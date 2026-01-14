@@ -4,8 +4,7 @@ from typing import List, Optional
 import pandas as pd
 import json
 
-top_N = 20 #选择前20个专利
-df_1 = pd.read_json("patents.json")
+df_1 = pd.read_json("company_product_data.json")
 out_path = "product_behaviors.jsonl" #输出路径
 
 class Behavior(BaseModel):
@@ -27,26 +26,19 @@ client = genai.Client(api_key = api_key)
 
 with open(out_path, "w", encoding="utf-8") as f:
     
-    for i in range(top_N):
-    
-        row = df_1.iloc[i]
-        test_item = row.to_dict() #将这一行数据变为字典，方便后续处理
-        publication_num = test_item.get("publication_number","")
-        claims_list = json.loads(test_item["claims"]) #读取claim部分
-        #print(claims_list[-3:])
-        for claim in claims_list:
-            claim_text = claim["text"] # 原始 claim 句子
-            print(f"正在处理{claim_num}专利数据")
-    
+    for company in df_1["companies"]:
+        company_name = company["name"]
+        for product in company["products"]:
             prompt = f"""
-You are a patent claims analyst. Output must follow the JSON schema exactly.
-Title:
-{test_item.get("title", "")}        
-Abstract:
-{test_item.get("abstract", "")} 
-Claim:
-{claim_text}
-""".strip()    
+You are a product analyst. Output must follow the JSON schema exactly.
+Company:
+{company_name}
+Product:
+{product["name"]}
+Product Description:
+{product["description"]}
+""".strip()        
+
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
@@ -57,6 +49,8 @@ Claim:
             )
     
             parsed = json.loads(response.text)
+            parsed["company"] = company_name
+            parsed["product"] = product["name"]
             
             f.write(json.dumps(parsed, ensure_ascii=False) + "\n")
-        print(f'公开文件ID：{test_item.get("id","")}已处理完毕')
+            print(f'公司{company_name}的产品{product["name"]}已处理完毕')
