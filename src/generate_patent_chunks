@@ -1,0 +1,36 @@
+#generate_patent_chunks
+#生成专利文件块，并转换成向量，然后储存进一个向量数据库
+import pandas as pd
+import json
+import os
+from google import genai
+import chromadb
+
+TOP_N = 9999 #选取前10000个数据
+df = pd.read_json("patents.json")
+client = genai.Client(api_key=api_key)
+chroma_client = chromadb.PersistentClient(path="./chroma_db") #建一个chroma数据库
+collection = chroma_client.get_or_create_collection("patents")
+for i in range(TOP_N):
+    row = df.iloc[i]
+    test_item = row.to_dict()
+    patent_id = test_item['id']
+    title_name = test_item['title']
+    abstract_content = test_item['abstract']
+    patent_chunk = f"{title_name}{abstract_content}"
+    claim_list = json.loads(test_item['claims']) #把一个JSON字符串形式解析成list
+    for claim in claim_list:
+        if str(claim.get('num')).strip() == "1":
+            patent_chunk += claim.get("text","") + "\n"
+    vec = embed_with_retry(client, patent_chunk, max_retries=3)
+    if vec is None:
+        print(f"[跳过] 专利 {patent_id} embedding 多次失败")
+        continue
+
+    collection.add(
+    ids=[str(patent_id)],
+    documents=[patent_chunk],
+    embeddings=[vec],
+    metadatas=[{"patent_id": patent_id}],
+    )
+    print(f"id{patent_id}专利文本向量已储存进数据库")
