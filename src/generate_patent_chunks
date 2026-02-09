@@ -5,6 +5,33 @@ import json
 import os
 from google import genai
 import chromadb
+import time
+import random
+
+def embed_with_retry(
+    client,
+    text: str,
+    max_retries: int = 3,
+    base_sleep: float = 1.0,
+):
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=text,
+                config={"task_type": "RETRIEVAL_DOCUMENT"},
+            )
+            return resp.embeddings[0].values  # 成功：返回向量
+
+        except Exception as e:
+            print(f"[Embedding失败] 第 {attempt}/{max_retries} 次：{e}")
+
+            if attempt < max_retries:
+                sleep_time = base_sleep * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                time.sleep(sleep_time)
+
+    # 所有尝试都失败
+    return None
 
 TOP_N = 9999 #选取前10000个数据
 df = pd.read_json("patents.json")
